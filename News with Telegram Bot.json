@@ -1,0 +1,325 @@
+{
+  "name": "News with Telegram",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -352,
+        -32
+      ],
+      "id": "e1a544a5-63af-4ed4-8c15-ac0ad21c424c",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "news_dt",
+        "columns": {
+          "column": [
+            {
+              "name": "post_id",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        -112,
+        -272
+      ],
+      "id": "844ac306-b227-4fca-99e5-79333000b55f",
+      "name": "Create a data table"
+    },
+    {
+      "parameters": {
+        "url": "https://t.me/s/mtqdmon",
+        "options": {
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "name": "page",
+                    "value": "={{ $response.body.match(/data-post=\"[^\\/]+\\/(\\d+)\"/)[1] }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ $pageCount >= 2 }}",
+              "limitPagesFetched": true,
+              "maxRequests": 2,
+              "requestInterval": 1000
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -160,
+        16
+      ],
+      "id": "178e98d2-8021-4717-b478-4e0ad7b780ec",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "content",
+              "cssSelector": ".tgme_widget_message_text",
+              "returnArray": true
+            },
+            {
+              "key": "post_id",
+              "cssSelector": ".tgme_widget_message",
+              "returnValue": "attribute",
+              "attribute": "data-post",
+              "returnArray": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        48,
+        16
+      ],
+      "id": "b941ca1f-e919-4dd1-864a-1ebb9e4e3f54",
+      "name": "HTML"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "content, post_id",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        224,
+        16
+      ],
+      "id": "cffe02ff-c0d1-4de3-97fb-3795139041f7",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "chatId": "@test_news_channel_with_aya",
+        "text": "={{ $json.content }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        784,
+        16
+      ],
+      "id": "a4e2da10-5615-4c9b-963c-87091bfb0062",
+      "name": "Send a text message",
+      "webhookId": "fa0c7a16-9a6b-479c-a4fe-623d472d7810",
+      "credentials": {
+        "telegramApi": {
+          "id": "4bybZijmLOQFceGI",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "pythonNative",
+        "pythonCode": "def strip_brackets(s, marker):\n    out = []\n    i = 0\n    while i < len(s):\n        if s[i] == '[' and s[i+1:i+1+len(marker)] == marker:\n            j = s.find(']', i)\n            if j != -1:\n                i = j + 1\n                while out and out[-1] in ' \\t':\n                    out.pop()\n                continue\n        out.append(s[i])\n        i += 1\n    return ''.join(out)\n\n\ndef md_links(s):\n    out = []\n    i = 0\n    while i < len(s):\n        if s[i] == '[':\n            close = s.find(']', i)\n            if close != -1 and close + 1 < len(s) and s[close+1] == '(':\n                end = s.find(')', close)\n                if end != -1:\n                    out.append(s[i+1:close])\n                    i = end + 1\n                    continue\n        out.append(s[i])\n        i += 1\n    return ''.join(out)\n\n\nt = _item[\"json\"].get(\"content\") or \"\"\n\nt = strip_brackets(t, '?q=')\nt = strip_brackets(t, 'http')\nt = md_links(t)\n\nwhile '  ' in t:\n    t = t.replace('  ', ' ')\nwhile '\\n\\n\\n' in t:\n    t = t.replace('\\n\\n\\n', '\\n\\n')\n\nt = t.strip()\n\nt = t.replace('&', '&amp;')\nt = t.replace('<', '&lt;')\nt = t.replace('>', '&gt;')\n\n_item[\"json\"][\"content\"] = t\n\nreturn _item"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        576,
+        16
+      ],
+      "id": "358fed20-9b56-403b-a7c8-f79b48744b5c",
+      "name": "Code in Python"
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "xXhf1Oqu2wo90er6",
+          "mode": "list",
+          "cachedResultName": "news_datatable",
+          "cachedResultUrl": "/projects/yE0iVWOZoahQxbv9/datatables/xXhf1Oqu2wo90er6"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "post_id": "={{ Number($('Split Out').item.json.post_id.split(\"/\")[1]) }}"
+          },
+          "matchingColumns": [
+            "post_id"
+          ],
+          "schema": [
+            {
+              "id": "post_id",
+              "displayName": "post_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        960,
+        16
+      ],
+      "id": "0e0122de-8fc4-4052-abb8-baf668165020",
+      "name": "Insert row"
+    },
+    {
+      "parameters": {
+        "operation": "rowNotExists",
+        "dataTableId": {
+          "__rl": true,
+          "value": "LqN7LZvrlZxyumI5",
+          "mode": "list",
+          "cachedResultName": "news_dt",
+          "cachedResultUrl": "/projects/yE0iVWOZoahQxbv9/datatables/LqN7LZvrlZxyumI5"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "post_id",
+              "keyValue": "={{ Number($('Split Out').item.json.post_id.split(\"/\")[1]) }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        400,
+        16
+      ],
+      "id": "9e0cd6a5-ca4c-42cf-b734-47ed9761c50b",
+      "name": "If row does not exist"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "If row does not exist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in Python": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert row": {
+      "main": [
+        []
+      ]
+    },
+    "If row does not exist": {
+      "main": [
+        [
+          {
+            "node": "Code in Python",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a text message": {
+      "main": [
+        [
+          {
+            "node": "Insert row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "dddf7ad9-4405-4edf-b511-9c559fd47228",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ab92dcac2a1adc817b04ee231994cfb204598bfc0fc0becb82129f200777cfbf"
+  },
+  "id": "H73O2x5jYWJdlV5V",
+  "tags": []
+}
